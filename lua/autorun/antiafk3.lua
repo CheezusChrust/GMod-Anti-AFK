@@ -5,12 +5,13 @@ if CLIENT then
         chat.AddText(unpack(net.ReadTable()))
     end)
 else
-    CreateConVar("antiafk_afktime", 15, {FCVAR_ARCHIVE, FCVAR_SERVER_CAN_EXECUTE}, "Time before flagging a player as AFK, in minutes. Set to 0 to disable Anti AFK.")
-    CreateConVar("antiafk_kicktime", 30, {FCVAR_ARCHIVE, FCVAR_SERVER_CAN_EXECUTE}, "Time before kicking AFK players, in minutes.")
-    CreateConVar("antiafk_spawnkicktime", 5, {FCVAR_ARCHIVE, FCVAR_SERVER_CAN_EXECUTE}, "Time before kicking AFK players who haven't moved since joining, in minutes. Set to 0 to disable.")
-    CreateConVar("antiafk_excludeadmins", 0, {FCVAR_ARCHIVE, FCVAR_SERVER_CAN_EXECUTE}, "Whether or not admins should be excluded from AntiAFK kicking.")
+    CreateConVar("aafk_afktime", 15, {FCVAR_ARCHIVE, FCVAR_SERVER_CAN_EXECUTE}, "Time before flagging a player as AFK, in minutes. Set to 0 to disable Anti AFK.", 0, 1439)
+    CreateConVar("aafk_kicktime", 30, {FCVAR_ARCHIVE, FCVAR_SERVER_CAN_EXECUTE}, "Time before kicking AFK players, in minutes. Set to 0 to disable.", 0, 1440)
+    CreateConVar("aafk_spawnkicktime", 5, {FCVAR_ARCHIVE, FCVAR_SERVER_CAN_EXECUTE}, "Time before kicking AFK players who haven't moved since joining, in minutes. Set to 0 to disable.", 0, 1440)
+    CreateConVar("aafk_excludeadmins", 0, {FCVAR_ARCHIVE, FCVAR_SERVER_CAN_EXECUTE}, "Whether or not admins should be excluded from AntiAFK kicking.", 0, 1)
+    CreateConVar("aafk_onlywhenfull", 0, {FCVAR_ARCHIVE, FCVAR_SERVER_CAN_EXECUTE}, "Whether or not to only kick AFK players when the server is full.", 0, 1)
     util.AddNetworkString("antiafk_sendmsg")
-    print("[AntiAFK] Loaded!")
+    print("[AAFK] Loaded!")
 
     --this used to be broadcastlua lol
     local function sendmsg(target, ...)
@@ -28,7 +29,7 @@ else
         if not IsValid(ply) then return end
 
         if ply.afkTime > GetConVar("antiafk_afktime"):GetInt() * 60 then
-            print(ply:Nick() .. " is no longer AFK!")
+            print("[AAFK] " .. ply:Nick() .. " is no longer AFK!")
             sendmsg(nil, Color(255, 0, 255), "[Server] ", Color(255, 255, 100), ply:Nick(), Color(255, 255, 255), " is no longer AFK!")
         end
 
@@ -44,18 +45,18 @@ else
     end)
 
     timer.Create("antiafk_AfkClock", 1, 0, function()
-        local afkTime = GetConVar("antiafk_afktime"):GetInt() * 60
-        local kickTime = GetConVar("antiafk_kicktime"):GetInt() * 60
-        local spawnKickTime = GetConVar("antiafk_spawnkicktime"):GetInt() * 60
-        local excludeAdmins = GetConVar("antiafk_excludeadmins"):GetBool()
+        local afkTime = GetConVar("aafk_afktime"):GetInt() * 60
+        local kickTime = GetConVar("aafk_kicktime"):GetInt() * 60
+        local spawnKickTime = GetConVar("aafk_spawnkicktime"):GetInt() * 60
+        local excludeAdmins = GetConVar("aafk_excludeadmins"):GetBool()
+        local onlyWhenFull = GetConVar("aafk_onlywhenfull"):GetBool()
         if afkTime <= 0 then return end
+        if kickTime <= afkTime then
+            GetConVar("antiafk_kicktime"):SetInt(afkTime + 1)
+        end
 
         for _, ply in pairs(player.GetAll()) do
             if ply:IsConnected() and ply:IsFullyAuthenticated() then
-                if kickTime <= afkTime then
-                    GetConVar("antiafk_kicktime"):SetInt(afkTime + 1)
-                end
-
                 ply.afkTime = ply.afkTime + 1
 
                 if ply.afkTime == afkTime then
@@ -63,20 +64,20 @@ else
                     sendmsg(nil, Color(255, 0, 255), "[Server] ", Color(255, 255, 100), ply:Nick(), Color(255, 255, 255), " is now AFK!")
                 end
 
-                if ply:IsAdmin() and excludeAdmins then break end
+                if (ply:IsAdmin() and excludeAdmins) or onlyWhenFull then break end
 
                 if spawnKickTime > 0 and ply.afkTime >= spawnKickTime and not ply.hasMovedAfterSpawning then
-                    sendmsg(nil, Color(255, 0, 255), "[Server] ", Color(255, 255, 100), ply:Nick(), Color(255, 255, 255), " has been kicked for being AFK more than " .. (spawnKickTime / 60) .. " minutes after spawning.")
+                    sendmsg(nil, Color(255, 0, 255), "[Server] ", Color(255, 255, 100), ply:Nick(), Color(255, 255, 255), " has been kicked for being AFK more than " .. math.floor(spawnKickTime / 60) .. " minutes after spawning.")
                     ply:Kick("Kicked for being AFK more than 5 minutes after spawning.")
                 end
 
-                if ply.afkTime >= kickTime then
+                if kickTime > 0 and ply.afkTime >= kickTime then
                     ply.afkTime = 0
-                    sendmsg(nil, Color(255, 0, 255), "[Server] ", Color(255, 255, 100), ply:Nick(), Color(255, 255, 255), " has been kicked for being AFK more than " .. (kickTime / 60) .. " minutes.")
-                    ply:Kick("Kicked for being AFK more than " .. (kickTime / 60) .. " minutes.")
+                    sendmsg(nil, Color(255, 0, 255), "[Server] ", Color(255, 255, 100), ply:Nick(), Color(255, 255, 255), " has been kicked for being AFK more than " .. math.floor(kickTime / 60) .. " minutes.")
+                    ply:Kick("Kicked for being AFK more than " .. math.floor(kickTime / 60) .. " minutes.")
                 end
 
-                if ply.afkTime == kickTime - 300 then
+                if kickTime > 0 and ply.afkTime == kickTime - 300 then
                     sendmsg(ply, Color(255, 0, 0), "Warning: You will be kicked soon if you remain inactive.")
                 end
             end
