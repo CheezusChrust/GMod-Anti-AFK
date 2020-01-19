@@ -39,14 +39,6 @@ else
         end
     end
 
-    concommand.Add("antiafk_disable", function()
-        hook.Remove("PlayerInitialSpawn", "antiafk_InitPlayer")
-        timer.Remove("antiafk_AfkClock")
-        hook.Remove("KeyPress", "antiafk_PlayerMoved")
-        hook.Remove("PlayerSay", "antiafk_PlayerChat")
-        hook.Remove("PlayerSpawnedProp", "antiafk_PropSpawned")
-    end)
-
     hook.Add("PlayerInitialSpawn", "antiafk_InitPlayer", function(ply)
         ply.afkTime = 0
     end)
