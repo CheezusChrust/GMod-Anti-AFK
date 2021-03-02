@@ -1,7 +1,5 @@
---Basic Anti AFK v3
---Made by Cheezus - STEAM_1:0:22893484
 if CLIENT then
-    net.Receive("antiafk_sendmsg", function()
+    net.Receive("aafk_sendmsg", function()
         chat.AddText(unpack(net.ReadTable()))
     end)
 else
@@ -10,12 +8,12 @@ else
     CreateConVar("aafk_spawnkicktime", 5, {FCVAR_ARCHIVE, FCVAR_SERVER_CAN_EXECUTE}, "Time before kicking AFK players who haven't moved since joining, in minutes. Set to 0 to disable.", 0, 1440)
     CreateConVar("aafk_excludeadmins", 0, {FCVAR_ARCHIVE, FCVAR_SERVER_CAN_EXECUTE}, "Whether or not admins should be excluded from AntiAFK kicking.", 0, 1)
     CreateConVar("aafk_onlywhenfull", 0, {FCVAR_ARCHIVE, FCVAR_SERVER_CAN_EXECUTE}, "Whether or not to only kick AFK players when the server is full.", 0, 1)
-    util.AddNetworkString("antiafk_sendmsg")
-    print("[AAFK] Loaded!")
 
-    --this used to be broadcastlua lol
+    util.AddNetworkString("aafk_sendmsg")
+
     local function sendmsg(target, ...)
-        net.Start("antiafk_sendmsg")
+        net.Start("aafk_sendmsg")
+
         net.WriteTable({...})
 
         if not target then
@@ -34,18 +32,15 @@ else
         end
 
         ply.afkTime = 0
-        ply.hasMovedAfterSpawning = true
+        ply.afkIsIdle = nil
     end
 
-    hook.Add("PlayerInitialSpawn", "antiafk_InitPlayer", function(ply)
+    hook.Add("PlayerInitialSpawn", "aafk_initplayer", function(ply)
         ply.afkTime = 0
+        ply.afkIsIdle = true
     end)
 
-    if timer.Exists("antiafk_AfkClock") then
-        timer.Remove("antiafk_AfkClock")
-    end
-
-    timer.Create("antiafk_AfkClock", 1, 0, function()
+    timer.Create("aafk_afkclock", 1, 0, function()
         local afkTime = GetConVar("aafk_afktime"):GetInt() * 60
         if afkTime <= 0 then return end
         local kickTime = GetConVar("aafk_kicktime"):GetInt() * 60
@@ -69,12 +64,12 @@ else
                 if ply:IsAdmin() and excludeAdmins then break end
                 if player.GetCount() < game.MaxPlayers() and onlyWhenFull then break end
 
-                if spawnKickTime > 0 and ply.afkTime >= spawnKickTime and not ply.hasMovedAfterSpawning then
+                if spawnKickTime > 0 and ply.afkTime >= spawnKickTime and ply.afkIsIdle then
                     sendmsg(nil, Color(255, 0, 255), "[Server] ", Color(255, 255, 100), ply:Nick(), Color(255, 255, 255), " has been kicked for being AFK more than " .. (spawnKickTime / 60) .. " minutes after spawning.")
                     ply:Kick("Kicked for being AFK more than 5 minutes after spawning")
                 end
 
-                if ply.afkTime >= kickTime then
+                if kickTime > 0 and ply.afkTime >= kickTime and not (onlyWhenFull and player.GetCount() == game.MaxPlayers()) then
                     ply.afkTime = 0
                     sendmsg(nil, Color(255, 0, 255), "[Server] ", Color(255, 255, 100), ply:Nick(), Color(255, 255, 255), " has been kicked for being AFK more than " .. (kickTime / 60) .. " minutes.")
                     ply:Kick("Kicked for being AFK more than " .. (kickTime / 60) .. " minutes")
@@ -88,7 +83,7 @@ else
         end
     end)
 
-    hook.Add("KeyPress", "antiafk_PlayerMoved", stopAFK)
-    hook.Add("PlayerSay", "antiafk_PlayerChat", stopAFK)
-    hook.Add("PlayerSpawnedProp", "antiafk_PropSpawned", stopAFK)
+    hook.Add("KeyPress", "aafk_playermoved", stopAFK)
+    hook.Add("PlayerSay", "aafk_playerchat", stopAFK)
+    hook.Add("PlayerSpawnedProp", "aafk_propspawned", stopAFK)
 end
